@@ -1,1 +1,13 @@
 Best parameters: {'colsample_bytree': 0.8, 'learning_rate': 0.05, 'max_depth': 8, 'n_estimators': 200, 'subsample': 0.8}
+
+ok now i need a only one techniques of anti debug, exclude from this list: 
+IsDebuggerPresent
+IsDebuggerPresent Replacement
+NtQueryInformationProcess
+Hardware Breakpoint 
+Blacklist Array
+GetTickCount64
+QueryPerformanceCounter
+DebugBreak
+OutputDebugString
+Self-Deletion
