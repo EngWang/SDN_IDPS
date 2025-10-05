@@ -1,0 +1,22 @@
+SECTION .data
+SSN dd 0                  ; System Service Number (DWORD)
+syscallInstr dq 0         ; Address of syscall instruction (QWORD)
+
+SECTION .text
+global PrepareSSN
+global PrepareSyscallInst
+global SyscallWrapper
+
+PrepareSSN:
+    mov [SSN], ecx        ; Set SSN from ecx
+    ret
+
+PrepareSyscallInst:
+    mov [syscallInstr], rcx ; Set syscallInstr from rcx
+    ret
+
+SyscallWrapper:
+    mov r10, rcx          ; Syscall convention: r10 = rcx
+    mov eax, [SSN]        ; Load SSN into eax
+    jmp qword [syscallInstr] ; Indirect jump to syscall instruction in ntdll
+    ret                   ; Return after syscall
