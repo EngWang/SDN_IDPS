@@ -1,0 +1,30 @@
+SECTION .data
+    wSystemCall dd 0          ; DWORD to store syscall number
+    syscall_stub dq 0         ; QWORD to store syscall stub address
+
+SECTION .text
+    global HellsGate
+    global HellDescent
+
+HellsGate:
+    ; Initialize syscall number and store stub address
+    mov DWORD [wSystemCall], 0
+    mov DWORD [wSystemCall], ecx  ; Store syscall number from ecx
+    lea rax, [rel SyscallStub]    ; Load relative address of syscall stub
+    mov [syscall_stub], rax       ; Store stub address
+    ret
+
+SyscallStub:
+    ; Indirect syscall stub to execute syscall
+    mov r10, rcx                  ; Move parameters to r10
+    mov eax, [wSystemCall]        ; Load syscall number
+    jmp QWORD [syscall_stub]      ; Jump to stored syscall stub address
+    syscall                       ; Syscall instruction (executed indirectly)
+    ret
+
+HellDescent:
+    ; Main function to trigger indirect syscall
+    mov r10, rcx                  ; Move parameters to r10
+    mov eax, [wSystemCall]        ; Load syscall number
+    call SyscallStub              ; Call the indirect syscall stub
+    ret
