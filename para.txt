@@ -1,8 +1,0 @@
-To rebuild a similar code based on the explanation, focus on these key points:
-
-Purpose: The code is a Windows DLL demo for side-loading, mimicking a library (e.g., OpenSSL's libssl.dll) with stub functions.
-Structure: Include <windows.h> for Windows API support, use extern "C" for C linkage, and export numerous functions with __declspec(dllexport) and __stdcall calling convention.
-Function Stubs: Define a large set of function declarations (e.g., SSL, TLS, DTLS-related) with empty bodies (/* Stub */) to simulate a real library's interface.
-Entry Point: Implement DllMain to handle DLL lifecycle events (e.g., DLL_PROCESS_ATTACH, DLL_THREAD_ATTACH, etc.), including a message box for user feedback.
-Localization: Replace any non-English text (e.g., Vietnamese message) with English equivalents while maintaining functionality.
-Compilation: Ensure compatibility as a 64-bit DLL using appropriate compiler flags (e.g., /D_WIN64 /EHsc /LD in MSVC).
